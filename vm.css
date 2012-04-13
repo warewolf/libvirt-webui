@@ -1,0 +1,5 @@
+table, th, td { border: 1px solid black; }
+th, td { padding: 0.3em; }
+div.control { display: inline; }
+div.control form { display: inline; }
+
