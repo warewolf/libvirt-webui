@@ -39,7 +39,8 @@ my %domainState = (
 my @ctrl_alt_del = ( 0x1d, 0x38, 0xd3,  );
 
 # Order matters.
-my @commandOrder = ('start', 'halt', 'shutdown', 'reboot', 'reset', 'suspend', 'resume');
+my @commandOrder1 = ('start', 'halt', 'reset', 'suspend', 'resume');
+my @commandOrder2 = ('shutdown', 'reboot', 'ctrl-alt-del');
 # disabled: 'ctrl-alt-del'
 
 my %commandIcons = (
@@ -50,7 +51,7 @@ my %commandIcons = (
 	'reset' => 'update.png',
 	'suspend' => 'control_pause_blue.png',
 	'resume' => 'control_play_blue.png',
-	'ctrl-alt-del' => 'keyboard',
+	'ctrl-alt-del' => 'keyboard.png',
 );
 
 # maps each command to a set of states the command is valid in for a given domain.
@@ -113,9 +114,27 @@ sub	drawButton ($$) {
 	print $cgi->start_form(-method => 'POST', -class => 'buttons');
 	print $cgi->hidden (-name => "vm_uuid", -value => $uuid, -force => 1);
 	print $cgi->hidden (-name => "command", -value => $text, -force => 1);
-	print $cgi->image_button (-name => "submit", -alt => $text, -src => $img);
+	print $cgi->image_button (-name => "submit", -alt => $text, -title => $text, -src => $img);
 	print $cgi->end_form(), "\n";
 }
+
+sub	drawButtonSet ($$) {
+	my ($cmdSet, $dom) = @_;
+
+	print "<td><ul class='control'>";
+	foreach my $cmd (@$cmdSet) {
+		my ($state, $reason) = $dom->get_state();
+		my $uuid = $dom->get_uuid_string();
+
+		print "<li><div class='button'>";
+		if (isValidCommand ($state, $cmd)) {
+			drawButton ($uuid, $cmd);
+		}
+		print "</div></li>";
+	}
+	print "</ul></td>";
+}
+
 
 sub	doListDomain ($) {
 	my ($dom) = @_;
@@ -144,17 +163,8 @@ sub	doListDomain ($) {
 	print "<td>$macAddr</td>";
 	print "<td>$vncPort</td>";
 
-	print "<td><ul class='control'>";
-	foreach my $cmd (@commandOrder) {
-		print "<li><div class='button'>";
-		if (isValidCommand ($state, $cmd)) {
-			drawButton ($uuid, $cmd);
-#		} else {
-#			print "<span>&nbsp;</span>";
-		}
-		print "</div></li>";
-	}
-	print "</ul></td>";
+	drawButtonSet (\@commandOrder1, $dom);
+	drawButtonSet (\@commandOrder2, $dom);
 
 	print "</tr>\n";
 }
@@ -167,7 +177,8 @@ sub	doList () {
 	print "<th>vCPUs</th>";
 	print "<th>MAC Address</th>";
 	print "<th>VNC Port</th>";
-	print "<th>Actions</th>";
+	print "<th>Force</th>";
+	print "<th>Graceful</th>";
 	print "</tr>\n";
 
 	my @vmList = ($vmm->list_defined_domains(), $vmm->list_domains());
