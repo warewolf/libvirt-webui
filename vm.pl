@@ -39,8 +39,19 @@ my %domainState = (
 my @ctrl_alt_del = ( 0x1d, 0x38, 0xd3,  );
 
 # Order matters.
-my @commands = ('start', 'halt', 'shutdown', 'reboot', 'reset', 'suspend', 'resume');
+my @commandOrder = ('start', 'halt', 'shutdown', 'reboot', 'reset', 'suspend', 'resume');
 # disabled: 'ctrl-alt-del'
+
+my %commandIcons = (
+	'start' => 'control_play_blue.png',
+	'halt' => 'cancel.png',
+	'shutdown' => 'control_stop_blue.png',
+	'reboot' => 'update.png',
+	'reset' => 'update.png',
+	'suspend' => 'control_pause_blue.png',
+	'resume' => 'control_play_blue.png',
+	'ctrl-alt-del' => 'keyboard',
+);
 
 # maps each command to a set of states the command is valid in for a given domain.
 my %validCommands = (
@@ -96,9 +107,13 @@ sub	isValidCommand ($$) {
 sub	drawButton ($$) {
 	my ($uuid, $text) = @_;
 
+	my $img = "";
+	$img = $wwwRoot . "/" . $commandIcons{$text} if (defined $commandIcons{$text});
+
 	print $cgi->start_form(-method=>'POST');
 	print $cgi->hidden (-name => "vm_uuid", -value => $uuid, -force => 1);
-	print $cgi->submit(-name => "command", -value => $text, -force => 1);
+	print $cgi->hidden (-name => "command", -value => $text, -force => 1);
+	print $cgi->image_button (-name => "submit", -alt => $text, -src => $img);
 	print $cgi->end_form(), "\n";
 }
 
@@ -130,7 +145,7 @@ sub	doListDomain ($) {
 	print "<td>$vncPort</td>";
 
 	print "<td><div class='control'>";
-	foreach my $cmd (@commands) {
+	foreach my $cmd (@commandOrder) {
 		drawButton ($uuid, $cmd) if (isValidCommand ($state, $cmd));
 	}
 	print "</div></td>";
@@ -186,6 +201,16 @@ sub	doCommand ($$) {
 	}
 }
 
+sub	debugVars () {
+
+	print "<ol>\n";
+	my $vars = $cgi->Vars();
+	foreach my $key (sort keys %$vars) {
+		print "<li><b>$key</b> = " . $vars->{$key} . "</li>\n";
+	}
+	print "</ol>\n";
+}
+
 sub	doMain () {
 
 	print $cgi->header;
@@ -196,6 +221,8 @@ sub	doMain () {
 	print $cgi->h1({-align=>'center'}, 'Virtual Machines');
 	print $cgi->h3({-align=>'center'}, "Your IP address is $ip");
 	print $cgi->p($cgi->a({-href=>""}, "Reload VM List"));
+
+#	debugVars();
 
 	my $command = $cgi->param('command');
 	my $uuid = $cgi->param('vm_uuid');
