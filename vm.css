@@ -1,5 +1,6 @@
 table, th, td { border: 1px solid black; }
 th, td { padding: 0.3em; }
-div.control { display: inline; }
-div.control form { display: inline; }
-
+ul.control { list-style-type: none; padding: 0; margin: 0; }
+ul.control li { display: inline-block; float: left; }
+form.buttons { display: inline-block; }
+div.button { display: inline-block; width: 20px; padding: 0;}

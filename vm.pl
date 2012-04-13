@@ -110,7 +110,7 @@ sub	drawButton ($$) {
 	my $img = "";
 	$img = $wwwRoot . "/" . $commandIcons{$text} if (defined $commandIcons{$text});
 
-	print $cgi->start_form(-method=>'POST');
+	print $cgi->start_form(-method => 'POST', -class => 'buttons');
 	print $cgi->hidden (-name => "vm_uuid", -value => $uuid, -force => 1);
 	print $cgi->hidden (-name => "command", -value => $text, -force => 1);
 	print $cgi->image_button (-name => "submit", -alt => $text, -src => $img);
@@ -144,11 +144,17 @@ sub	doListDomain ($) {
 	print "<td>$macAddr</td>";
 	print "<td>$vncPort</td>";
 
-	print "<td><div class='control'>";
+	print "<td><ul class='control'>";
 	foreach my $cmd (@commandOrder) {
-		drawButton ($uuid, $cmd) if (isValidCommand ($state, $cmd));
+		print "<li><div class='button'>";
+		if (isValidCommand ($state, $cmd)) {
+			drawButton ($uuid, $cmd);
+#		} else {
+#			print "<span>&nbsp;</span>";
+		}
+		print "</div></li>";
 	}
-	print "</div></td>";
+	print "</ul></td>";
 
 	print "</tr>\n";
 }
