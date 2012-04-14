@@ -12,16 +12,18 @@ use Data::Dumper;
 
 # Super-duper global configs:
 my $hostAddress = "qemu+tls://ostara/system";
-my $appRoot = "/vm";
+
+# No user-servicable parts below this line.
+my $appRoot = $ENV{'REQUEST_URI'};
 my $wwwRoot = "$appRoot/www";
+my $ip = $ENV{'REMOTE_ADDR'} || "0.0.0.0";
+my $user = $ENV{'REMOTE_USER'} || "";
 
 sub	doList();
 
 $CGI::POST_MAX=1024 * 100;  # max 100K posts
 $CGI::DISABLE_UPLOADS = 1;  # no uploads
 
-my $nLen = $ENV{'CONTENT_LENGTH'} || 0;
-my $ip = $ENV{'REMOTE_ADDR'} || '0.0.0.0';
 my $vmm =  Sys::Virt->new(address => $hostAddress) || die "Sys::Virt->new failed\n";
 my $cgi = CGI->new();
 
@@ -136,8 +138,8 @@ sub	drawButtonSet ($$) {
 }
 
 
-sub	doListDomain ($) {
-	my ($dom) = @_;
+sub	doListDomain ($$) {
+	my ($dom, $idx) = @_;
 
 	my $xmlStr = $dom->get_xml_description (0);
 	my $xs = new XML::Simple (ForceArray => 1);
@@ -152,8 +154,9 @@ sub	doListDomain ($) {
 	my $vcpus = $dom->get_max_vcpus();
 	$vcpus = "" if ($vcpus == -1);
 
+	my $r = ($idx & 1) ? "r1" : "r0";
 	my $uuid = $dom->get_uuid_string();
-	print "<tr>";
+	print "<tr class='$r'>";
 	print "<td>", $dom->get_name(), "</td>";
 	my ($state, $reason) = $dom->get_state();
 	print "<td>", $domainState{$state}, "</td>";
@@ -170,20 +173,21 @@ sub	doListDomain ($) {
 }
 
 sub	doList () {
-	print "<table><tr>";
+	print "<table><thead><tr>";
 	print "<th>Name</th>";
 	print "<th>State</th>";
 	print "<th>Mem</th>";
 	print "<th>vCPUs</th>";
-	print "<th>MAC Address</th>";
+	print "<th>MAC Addr</th>";
 	print "<th>VNC Port</th>";
 	print "<th>Force</th>";
 	print "<th>Graceful</th>";
-	print "</tr>\n";
+	print "</tr></thead>\n";
 
+	my $idx = 0;
 	my @vmList = ($vmm->list_defined_domains(), $vmm->list_domains());
 	@vmList = sort { $a->get_name() cmp $b->get_name() } @vmList;
-	foreach my $dom (@vmList) { doListDomain ($dom); }
+	foreach my $dom (@vmList) { doListDomain ($dom, $idx++); }
 
 	print "</table>\n";
 }
@@ -197,7 +201,8 @@ sub	doCommand ($$) {
 		return;
 	}
 
-	print $cgi->p("Command = $command, $uuid") if (defined $command);
+	my $name = $dom->get_name();
+	print $cgi->p("Command = $command, $uuid, $name") if (defined $command);
 
 	if ($command eq "start") {
 		$dom->create (0);
@@ -219,13 +224,47 @@ sub	doCommand ($$) {
 }
 
 sub	debugVars () {
-
-	print "<ol>\n";
+	print "<p>CGI vars:</p><ol>\n";
 	my $vars = $cgi->Vars();
 	foreach my $key (sort keys %$vars) {
 		print "<li><b>$key</b> = " . $vars->{$key} . "</li>\n";
 	}
 	print "</ol>\n";
+
+	print "<p>ENV vars:</p><ol>\n";
+	foreach my $e (sort keys %ENV) {
+		print "<li><b>$e</b> = " . $ENV{$e} . "</li>\n";
+	}
+	print "</ol>\n";
+}
+
+sub	drawMainHeader () {
+	my @now = localtime (time ());
+	my $ts = sprintf ("%04d-%02d-%02d %02d:%02d:%02d",
+		$now[5] + 1900, $now[4] + 1, $now[3], $now[2], $now[1], $now[0]);
+
+	print $cgi->div({-class=>'header'}, 
+		$cgi->div({-class=>'hdr-left'},
+			$cgi->p($cgi->span({-class=>'key'}, "Client IP:"),
+				$cgi->span({-class=>'value'}, $ip),
+			),
+			$cgi->p($cgi->span({-class=>'key'}, "User:"),
+				$cgi->span({-class=>'value'}, $user),
+			),
+			$cgi->p($cgi->span({-class=>'key'}, "Time:"),
+				$cgi->span({-class=>'value'}, $ts),
+			),
+		),
+		$cgi->div({-class=>'hdr-right'},
+			$cgi->p($cgi->a({-href=>""},
+				$cgi->img({-src => "$wwwRoot/update.png",
+					-alt => "Reload VM List",
+					-title => "Reload Page"}),
+				),
+			),
+		),
+	),
+	$cgi->div({-class=>'clear'});
 }
 
 sub	doMain () {
@@ -235,10 +274,8 @@ sub	doMain () {
 		-title => 'Virtual Machines',
 		-style => {-type => 'text/css', -src => "$wwwRoot/vm.css", -media => 'screen' },
 	);
-	print $cgi->h1({-align=>'center'}, 'Virtual Machines');
-	print $cgi->h3({-align=>'center'}, "Your IP address is $ip");
-	print $cgi->p($cgi->a({-href=>""}, "Reload VM List"));
 
+	drawMainHeader();
 #	debugVars();
 
 	my $command = $cgi->param('command');
