@@ -14,7 +14,7 @@ use Data::Dumper;
 my $hostAddress = "qemu+tls://ostara/system";
 
 # No user-servicable parts below this line.
-my $appRoot = $ENV{'REQUEST_URI'};
+my $appRoot = $ENV{'SCRIPT_NAME'};
 my $wwwRoot = "$appRoot/www";
 my $ip = $ENV{'REMOTE_ADDR'} || "0.0.0.0";
 my $user = $ENV{'REMOTE_USER'} || "";
@@ -151,7 +151,7 @@ sub	doListDomain ($$) {
 
 	my $vncPort = $xml->{'devices'}[0]->{'graphics'}[0]->{'port'} || "n/a";
 
-	my $vcpus = $dom->get_max_vcpus();
+	my $vcpus = $dom->get_vcpus();
 	$vcpus = "" if ($vcpus == -1);
 
 	my $r = ($idx & 1) ? "r1" : "r0";
@@ -256,7 +256,7 @@ sub	drawMainHeader () {
 			),
 		),
 		$cgi->div({-class=>'hdr-right'},
-			$cgi->p($cgi->a({-href=>""},
+			$cgi->p($cgi->a({-href=>"#"},
 				$cgi->img({-src => "$wwwRoot/update.png",
 					-alt => "Reload VM List",
 					-title => "Reload Page"}),
@@ -267,6 +267,16 @@ sub	drawMainHeader () {
 	$cgi->div({-class=>'clear'});
 }
 
+sub	doPageMain () {
+	drawMainHeader();
+
+	my $command = $cgi->param('command');
+	my $uuid = $cgi->param('vm_uuid');
+	doCommand ($command, $uuid) if (defined $command);
+
+	doList();
+}
+
 sub	doMain () {
 
 	print $cgi->header;
@@ -275,14 +285,17 @@ sub	doMain () {
 		-style => {-type => 'text/css', -src => "$wwwRoot/vm.css", -media => 'screen' },
 	);
 
-	drawMainHeader();
 #	debugVars();
 
-	my $command = $cgi->param('command');
-	my $uuid = $cgi->param('vm_uuid');
-	doCommand ($command, $uuid) if (defined $command);
-
-	doList();
+# Figure out what the request is for.
+	my @pathInfo = split (/\//, $ENV{'PATH_INFO'});
+	if (0 == scalar @pathInfo) {
+		doPageMain ();
+	} else {
+		print $cgi->p("ERROR: No handler for URL: <b>" . $ENV{'SCRIPT_URL'} . "</b>");
+		drawMainHeader();
+		doList();
+	}
 
 	print $cgi->end_html;
 }
