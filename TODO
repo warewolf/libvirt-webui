@@ -1,0 +1,25 @@
+TODO:
+
+*) Reformat page header:
+done	*) Show authenticated username.
+done	*) Show page-load time.
+done	*) Show web client IP address.
+done	*) Convert link to refresh page into pretty button.
+	*) Add some system stats (cpu load avg, memory, disk).
+
+*) Main doamin grid:
+	*) Add display of CPU utilization.
+	*) Show who booted a VM.
+
+*) Add "details" page for each domain:
+	*) Use "noVNC" to host VNC viewer in web page :)
+	*) Show VM vital stats (boot time, CPU usage, etc...)
+
+*) Test with "lxc" container.
+
+*) When booting a VM, set an attribute in the XML config with username who booted it.
+
+*) Log activity to text file, and/or database, and/or syslog.
+
+*) Add IP address tracking (via DHCP snooping, see libvirt mailing list, 2012-04-18)
+

@@ -1,0 +1,23 @@
+https://forums.virtualbox.org/viewtopic.php?f=6&p=71260
+Turn off "Display Shutdown Event Tracker" via local policy.
+
+start -> run -> gpedit.msc
+	Local Computer Policy
+	Computer Configuration
+	Administrative Templates
+	System
+	Display Shutdown Event Tracker -> "disable"
+
+
+#######################################
+
+Web server URL scheme:
+
+*) All URLs begin with "/vm"
+
+*) Static content (css, js, images) are in "/vm/www"
+
+*) Any URL that does not map to a file on disk is passed to the handler for "/vm"
+
+*) Individual VM mgmt is via: "/vm/$verb/$uuid"
+   No verb means main interface.

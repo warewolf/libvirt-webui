@@ -3,7 +3,7 @@
 # 2012-04-12
 
 use strict;
-use CGI ':html3';
+use CGI qw/:standard :html3 tr td/;
 use CGI::Carp qw(warningsToBrowser fatalsToBrowser);
 use Sys::Virt;
 use Sys::Virt::Domain;
@@ -14,7 +14,7 @@ use Data::Dumper;
 my $hostAddress = "qemu+tls://ostara/system";
 
 # No user-servicable parts below this line.
-my $appRoot = $ENV{'SCRIPT_NAME'};
+my $appRoot = "/vm"; # $ENV{'SCRIPT_NAME'};
 my $wwwRoot = "$appRoot/www";
 my $ip = $ENV{'REMOTE_ADDR'} || "0.0.0.0";
 my $user = $ENV{'REMOTE_USER'} || "";
@@ -107,38 +107,36 @@ sub	isValidCommand ($$) {
 	return defined ($validCommands{$command}->{$state});
 }
 
-sub	drawButton ($$) {
-	my ($uuid, $text) = @_;
+sub	makeButton ($$) {
+	my ($uuid, $cmd) = @_;
 
 	my $img = "";
-	$img = $wwwRoot . "/" . $commandIcons{$text} if (defined $commandIcons{$text});
+	$img = $wwwRoot . "/" . $commandIcons{$cmd} if (defined $commandIcons{$cmd});
 
-	print $cgi->start_form(-method => 'POST', -class => 'buttons');
-	print $cgi->hidden (-name => "vm_uuid", -value => $uuid, -force => 1);
-	print $cgi->hidden (-name => "command", -value => $text, -force => 1);
-	print $cgi->image_button (-name => "submit", -alt => $text, -title => $text, -src => $img);
-	print $cgi->end_form(), "\n";
+	return 	$cgi->start_form(-method => 'POST', -class => 'buttons') .
+		$cgi->hidden (-name => "vm_uuid", -value => $uuid, -force => 1) .
+		$cgi->hidden (-name => "command", -value => $cmd, -force => 1) .
+		$cgi->image_button (-name => "submit", -alt => $cmd, -title => $cmd, -src => $img) .
+		$cgi->end_form();
 }
 
-sub	drawButtonSet ($$) {
+sub	makeButtonSet ($$) {
 	my ($cmdSet, $dom) = @_;
+	my $html;
 
-	print "<td><ul class='control'>";
 	foreach my $cmd (@$cmdSet) {
 		my ($state, $reason) = $dom->get_state();
 		my $uuid = $dom->get_uuid_string();
 
-		print "<li><div class='button'>";
-		if (isValidCommand ($state, $cmd)) {
-			drawButton ($uuid, $cmd);
-		}
-		print "</div></li>";
+		my $btn = makeButton ($uuid, $cmd) if (isValidCommand ($state, $cmd));
+
+		$html .= $cgi->li($cgi->div ({-class => 'button'}, ($btn ? $btn : "")));
 	}
-	print "</ul></td>";
+
+	return $cgi->ul({-class => 'control'}, $html);
 }
 
-
-sub	doListDomain ($$) {
+sub	makeDomainRow ($$) {
 	my ($dom, $idx) = @_;
 
 	my $xmlStr = $dom->get_xml_description (0);
@@ -156,20 +154,17 @@ sub	doListDomain ($$) {
 
 	my $r = ($idx & 1) ? "r1" : "r0";
 	my $uuid = $dom->get_uuid_string();
-	print "<tr class='$r'>";
-	print "<td>", $dom->get_name(), "</td>";
 	my ($state, $reason) = $dom->get_state();
-	print "<td>", $domainState{$state}, "</td>";
-	print "<td>", $dom->get_max_memory() / 1024, "</td>";
 
-	print "<td>$vcpus</td>";
-	print "<td>$macAddr</td>";
-	print "<td>$vncPort</td>";
-
-	drawButtonSet (\@commandOrder1, $dom);
-	drawButtonSet (\@commandOrder2, $dom);
-
-	print "</tr>\n";
+	return $cgi->tr({-class => $r},
+		$cgi->td ($cgi->a ({-href=>"$appRoot/detail/$uuid"}, $dom->get_name())),
+		$cgi->td ($domainState{$state}),
+		$cgi->td ($dom->get_max_memory() / 1024),
+		$cgi->td ($vcpus),
+		$cgi->td ($macAddr),
+		$cgi->td ($vncPort),
+		$cgi->td (makeButtonSet (\@commandOrder1, $dom)),
+		$cgi->td (makeButtonSet (\@commandOrder2, $dom)));
 }
 
 sub	doList () {
@@ -187,7 +182,7 @@ sub	doList () {
 	my $idx = 0;
 	my @vmList = ($vmm->list_defined_domains(), $vmm->list_domains());
 	@vmList = sort { $a->get_name() cmp $b->get_name() } @vmList;
-	foreach my $dom (@vmList) { doListDomain ($dom, $idx++); }
+	foreach my $dom (@vmList) { print makeDomainRow ($dom, $idx++); }
 
 	print "</table>\n";
 }
@@ -256,8 +251,8 @@ sub	drawMainHeader () {
 			),
 		),
 		$cgi->div({-class=>'hdr-right'},
-			$cgi->p($cgi->a({-href=>"#"},
-				$cgi->img({-src => "$wwwRoot/update.png",
+			$cgi->p($cgi->a({-href=>"$appRoot"},
+				$cgi->img({-src => "$wwwRoot/house.png",
 					-alt => "Reload VM List",
 					-title => "Reload Page"}),
 				),
@@ -265,6 +260,17 @@ sub	drawMainHeader () {
 		),
 	),
 	$cgi->div({-class=>'clear'});
+}
+
+sub	doDetailPage ($) {
+	my ($uuid) = @_;
+
+	drawMainHeader();
+
+	my $dom = $vmm->get_domain_by_uuid ($uuid) || die ("ERROR: Unable to get VMM domain for UUID $uuid\n");
+	my $name = $dom->get_name();
+
+	print $cgi->p("Details for $uuid, $name");
 }
 
 sub	doPageMain () {
@@ -288,9 +294,13 @@ sub	doMain () {
 #	debugVars();
 
 # Figure out what the request is for.
+# "PATH_INFO" is in the form "/a/b/c/...."
 	my @pathInfo = split (/\//, $ENV{'PATH_INFO'});
+
 	if (0 == scalar @pathInfo) {
 		doPageMain ();
+	} elsif ($pathInfo[1] eq "detail") {
+		doDetailPage ($pathInfo[2]);
 	} else {
 		print $cgi->p("ERROR: No handler for URL: <b>" . $ENV{'SCRIPT_URL'} . "</b>");
 		drawMainHeader();
