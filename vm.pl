@@ -19,8 +19,6 @@ my $wwwRoot = "$appRoot/www";
 my $ip = $ENV{'REMOTE_ADDR'} || "0.0.0.0";
 my $user = $ENV{'REMOTE_USER'} || "";
 
-sub	doList();
-
 $CGI::POST_MAX=1024 * 100;  # max 100K posts
 $CGI::DISABLE_UPLOADS = 1;  # no uploads
 
@@ -43,7 +41,6 @@ my @ctrl_alt_del = ( 0x1d, 0x38, 0xd3,  );
 # Order matters.
 my @commandOrder1 = ('start', 'halt', 'reset', 'suspend', 'resume');
 my @commandOrder2 = ('shutdown', 'reboot', 'ctrl-alt-del');
-# disabled: 'ctrl-alt-del'
 
 my %commandIcons = (
 	'start' => 'control_play_blue.png',
@@ -56,7 +53,7 @@ my %commandIcons = (
 	'ctrl-alt-del' => 'keyboard.png',
 );
 
-# maps each command to a set of states the command is valid in for a given domain.
+# Maps each command to a set of states the command is valid for in a given domain.
 my %validCommands = (
 	'start' => {
 		Sys::Virt::Domain::STATE_SHUTDOWN => 1,
@@ -102,6 +99,11 @@ my %validCommands = (
 
 #print STDERR Dumper (\%validCommands); exit (0);
 
+sub	doSendCtrlAltDel ($) {
+	my ($dom) = @_;
+	$dom->send_key(Sys::Virt::Domain::KEYCODE_SET_LINUX, 100, \@ctrl_alt_del);
+}
+
 sub	isValidCommand ($$) {
 	my ($state, $command) = @_;
 	return defined ($validCommands{$command}->{$state});
@@ -110,8 +112,7 @@ sub	isValidCommand ($$) {
 sub	makeButton ($$) {
 	my ($uuid, $cmd) = @_;
 
-	my $img = "";
-	$img = $wwwRoot . "/" . $commandIcons{$cmd} if (defined $commandIcons{$cmd});
+	my $img = (defined $commandIcons{$cmd}) ? ($wwwRoot . "/" . $commandIcons{$cmd}) : "";
 
 	return 	$cgi->start_form(-method => 'POST', -class => 'buttons') .
 		$cgi->hidden (-name => "vm_uuid", -value => $uuid, -force => 1) .
@@ -127,10 +128,8 @@ sub	makeButtonSet ($$) {
 	foreach my $cmd (@$cmdSet) {
 		my ($state, $reason) = $dom->get_state();
 		my $uuid = $dom->get_uuid_string();
-
-		my $btn = makeButton ($uuid, $cmd) if (isValidCommand ($state, $cmd));
-
-		$html .= $cgi->li($cgi->div ({-class => 'button'}, ($btn ? $btn : "")));
+		my $btn = isValidCommand ($state, $cmd) ? makeButton ($uuid, $cmd) : "";
+		$html .= $cgi->li($cgi->div ({-class => 'button'}, $btn));
 	}
 
 	return $cgi->ul({-class => 'control'}, $html);
@@ -167,34 +166,26 @@ sub	makeDomainRow ($$) {
 		$cgi->td (makeButtonSet (\@commandOrder2, $dom)));
 }
 
-sub	doList () {
-	print "<table><thead><tr>";
-	print "<th>Name</th>";
-	print "<th>State</th>";
-	print "<th>Mem</th>";
-	print "<th>vCPUs</th>";
-	print "<th>MAC Addr</th>";
-	print "<th>VNC Port</th>";
-	print "<th>Force</th>";
-	print "<th>Graceful</th>";
-	print "</tr></thead>\n";
+sub	makeDomainTable () {
+	my @cols = ("Name", "State", "Mem", "vCPUs", "MAC Addr", "VNC Port", "Force", "Graceful");
 
+	my $thead;
+	foreach my $col (@cols) { $thead .= $cgi->th($col); }
+	$thead = $cgi->thead($cgi->tr($thead));
+
+	my $tbody;
 	my $idx = 0;
 	my @vmList = ($vmm->list_defined_domains(), $vmm->list_domains());
 	@vmList = sort { $a->get_name() cmp $b->get_name() } @vmList;
-	foreach my $dom (@vmList) { print makeDomainRow ($dom, $idx++); }
+	foreach my $dom (@vmList) { $tbody .= makeDomainRow ($dom, $idx++); }
 
-	print "</table>\n";
+	return $cgi->table($thead, $tbody);
 }
 
 sub	doCommand ($$) {
 	my ($command, $uuid) = @_;
 
-	my $dom = $vmm->get_domain_by_uuid ($uuid);
-	if (!defined $dom) {
-		print $cgi->p("ERROR: Unable to get VMM domain for UUID $uuid");
-		return;
-	}
+	my $dom = $vmm->get_domain_by_uuid ($uuid) || die ("ERROR: Unable to get VMM domain for UUID $uuid\n");
 
 	my $name = $dom->get_name();
 	print $cgi->p("Command = $command, $uuid, $name") if (defined $command);
@@ -214,7 +205,7 @@ sub	doCommand ($$) {
 	} elsif ($command eq "resume") {
 		$dom->resume ();
 	} elsif ($command eq "ctrl-alt-del") {
-		$dom->send_key(Sys::Virt::Domain::KEYCODE_SET_LINUX, 100, \@ctrl_alt_del);
+		doSendCtrlAltDel ($dom);
 	}
 }
 
@@ -280,7 +271,7 @@ sub	doPageMain () {
 	my $uuid = $cgi->param('vm_uuid');
 	doCommand ($command, $uuid) if (defined $command);
 
-	doList();
+	print makeDomainTable();
 }
 
 sub	doMain () {
@@ -304,7 +295,7 @@ sub	doMain () {
 	} else {
 		print $cgi->p("ERROR: No handler for URL: <b>" . $ENV{'SCRIPT_URL'} . "</b>");
 		drawMainHeader();
-		doList();
+		print makeDomainTable();
 	}
 
 	print $cgi->end_html;
