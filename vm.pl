@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
-# 2012-04-12
+# 2012-04-12, djenkins, initial
+package libvirtWebui::main;
 
 use strict;
 use CGI qw/:standard :html3 tr td/;
@@ -10,20 +11,25 @@ use Sys::Virt::Domain;
 use XML::Simple;
 use Data::Dumper;
 
+# http://stackoverflow.com/questions/4363913/splitting-code-into-files-in-perl
+use FindBin;
+use lib "$FindBin::Bin/.";
+
+use vm_debug;
+
 # Super-duper global configs:
 my $hostAddress = "qemu+tls://ostara/system";
 
 # No user-servicable parts below this line.
-my $appRoot = "/vm"; # $ENV{'SCRIPT_NAME'};
-my $wwwRoot = "$appRoot/www";
-my $ip = $ENV{'REMOTE_ADDR'} || "0.0.0.0";
-my $user = $ENV{'REMOTE_USER'} || "";
-
 $CGI::POST_MAX=1024 * 100;  # max 100K posts
 $CGI::DISABLE_UPLOADS = 1;  # no uploads
 
-my $vmm =  Sys::Virt->new(address => $hostAddress) || die "Sys::Virt->new failed\n";
-my $cgi = CGI->new();
+our $appRoot = "/vm"; # $ENV{'SCRIPT_NAME'};
+our $wwwRoot = "$appRoot/www";
+our $ip = $ENV{'REMOTE_ADDR'} || "0.0.0.0";
+our $user = $ENV{'REMOTE_USER'} || "";
+our $vmm = Sys::Virt->new(address => $hostAddress) || die "Sys::Virt->new failed\n";
+our $cgi = CGI->new();
 
 my %domainState = (
 	Sys::Virt::Domain::STATE_NOSTATE => "no state",
@@ -262,6 +268,9 @@ sub	doDetailPage ($) {
 	my $name = $dom->get_name();
 
 	print $cgi->p("Details for $uuid, $name");
+
+	my $xmlStr = $dom->get_xml_description (0);
+	print $cgi->pre($cgi->escapeHTML($xmlStr));
 }
 
 sub	doPageMain () {

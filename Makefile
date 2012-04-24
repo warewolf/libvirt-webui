@@ -9,6 +9,8 @@ DATE=		$(shell date '+%Y%m%d-%H%M%S')
 
 .phoney:	all check clean install bounce bounce2 taillogs
 
+all:		probeOs
+
 help:
 		@echo -ne "\n\033[01;35mMakefile Targets:\033[0m\n"
 		@for T in all clean check install bounce bounce2; \
@@ -24,7 +26,8 @@ taillogs:
 #######################################################################
 #######################################################################
 
-all:		dirs
+probeOs:	probeOs.c
+		gcc -std=c99 -Wall -O2 -pipe $< -o $@ -lvirt
 
 # "check" -> Syntax check of perl scripts.
 check:
