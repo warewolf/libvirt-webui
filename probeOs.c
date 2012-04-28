@@ -8,6 +8,7 @@
 */
 
 // https://en.wikibooks.org/wiki/X86_Disassembly/Windows_Executable_Files#MS-DOS_header
+// https://www.blackhat.com/presentations/bh-usa-06/BH-US-06-Burdach.pdf
 
 #include <assert.h>
 #include <stddef.h>

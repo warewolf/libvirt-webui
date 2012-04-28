@@ -1,24 +1,17 @@
 #!/usr/bin/perl -w
 
 # 2012-04-12, djenkins, initial
-
-# Good stuff on Windows Kernel Version detection:
-# Page #38: http://www.dtic.mil/dtic/tr/fulltext/u2/a499499.pdf
+# 2012-04-25, djenkins, updated.
 
 use strict;
 use Sys::Virt;
 use Sys::Virt::Domain;
-#use XML::Simple;
-#use Data::Dumper;
-#use Getopt::Long;
-use Data::HexDump;
+use Getopt::Long;
 
 # Super-duper global configs:
 my $hostAddress = "qemu+tls://ostara/system";
 my $flags = Sys::Virt::Domain::MEMORY_PHYSICAL;
 my $blksize = (1024 * 64);	# Max memory peak size.
-my $hexOffset = 0;
-my $hexSize = 1024;
 
 ### Don't edit below this line.
 
@@ -28,8 +21,11 @@ sub	binDump ($) {
 	my ($dom) = @_;
 	my $name = $dom->get_name();
 	my $file = "/tmp/qemu-$name.bin";
-	my $blocks = $dom->get_info()->{'maxMem'} * ($blksize / 1024);
+	my $blocks = $dom->get_info()->{'maxMem'} / ($blksize / 1024);
 	my $out;
+
+# cap at 32MB
+	$blocks = 32768 / ($blksize / 1024);
 
 	open ($out, ">", $file) || die ("ERROR: can't open '$file'\n");
 	binmode ($out);
@@ -38,30 +34,29 @@ sub	binDump ($) {
 	for (my $i = 0; $i < $blocks; $i++) {
 		my $buf = $dom->memory_peek($i * $blksize, $blksize, $flags) || die ("ERROR: memory_peak($name) failed.\n");
 		print $out $buf;
-		print STDERR sprintf ("\r%8d of %8d  ", $i, $blksize);
+		print STDERR sprintf ("\r%8d of %8d  (%s)", $i, $blocks, $name);
 	}
 
 	$dom->resume() && die ("ERROR: resume($name) failed.\n");
 	close ($out);
+	print STDERR "\n";
 }
 
-sub	hexDump ($) {
-	my ($dom) = @_;
-	my $name = $dom->get_name();
-	my $file = "/tmp/qemu-$name.txt";
-	my $out;
-
-	open ($out, ">", $file) || die ("ERROR: can't open '$file'\n");
-	my $buf = $dom->memory_peek($hexOffset, $hexSize, $flags) || die ("ERROR: memory_peak($name) failed.\n");
-	my $hexer = new Data::HexDump;
-	$hexer->data($buf);
-	print $out $hexer->dump() . "\n";
-	close ($out);
+sub	dumpAll () {
+	foreach my $dom ($vmm->list_domains()) {
+		binDump ($dom);
+	}
 }
 
-# Create a hex-dump of each running domain.
-foreach my $dom ($vmm->list_domains()) {
-	print STDERR "Processing: ", $dom->get_name(), "\n";
-#	hexDump ($dom);
-	binDump ($dom);
+sub	dumpOne ($) {
+	my ($id) = @_;
+	my $dom;
+
+	$dom = $vmm->get_domain_by_id ($id) if ($id =~ /^[\d]+$/);
+	$dom = $vmm->get_domain_by_name ($id) unless (defined $dom);
+	$dom = $vmm->get_domain_by_uuid ($id) unless (defined $dom);
+
+	binDump ($dom) if (defined $dom);
 }
+
+dumpOne ("dwj-lnx-test");
