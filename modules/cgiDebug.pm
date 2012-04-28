@@ -1,16 +1,15 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -wt
 
-package libvirtWebui;
+package modules::cgiDebug;
 
 use strict;
 use warnings FATAL => 'all';
-use vars qw ($VERSION @ISA @EXPORT @EXPORT_OK);
+use vars qw ($VERSION @ISA @EXPORT);
+use Exporter;
 
-require Exporter;
-
-@ISA = qw(Exporter AutoLoader);
 $VERSION = '0.1';
-@EXPORT  = qw(debugVars);
+@ISA = qw(Exporter);
+@EXPORT = qw(debugVars);
 
 sub	debugVars ($) {
 	my ($cgi) = @_;

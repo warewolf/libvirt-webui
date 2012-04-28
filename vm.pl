@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 # 2012-04-12, djenkins, initial
-package libvirtWebui;
+package libvirtWebui::main;
 
 use strict;
 use warnings;
@@ -24,11 +24,12 @@ BEGIN {
 	my $binDir = $FindBin::Bin;
 	$binDir =~ /^(.*)$/;
 	$binDir = $1;			# untaint value.
-	push (@INC, "$binDir/modules");
+	push (@INC, "$binDir");
 }
 
 # Now we can load our private modules (Now that '@INC' is patched).
-use cgiDebug;
+use modules::cgiDebug;
+use modules::libvirtTables;
 
 # Super-duper global configs:
 my $hostAddress = "qemu+tls://ostara/system";
@@ -44,78 +45,6 @@ our $ip = $ENV{'REMOTE_ADDR'} || "0.0.0.0";
 our $user = $ENV{'REMOTE_USER'} || "";
 our $vmm = Sys::Virt->new(address => $hostAddress) || die "Sys::Virt->new failed\n";
 our $cgi = CGI->new();
-
-my %domainState = (
-	Sys::Virt::Domain::STATE_NOSTATE => "no state",
-	Sys::Virt::Domain::STATE_RUNNING => "running",
-	Sys::Virt::Domain::STATE_BLOCKED => "blocked",
-	Sys::Virt::Domain::STATE_PAUSED => "paused",
-	Sys::Virt::Domain::STATE_SHUTDOWN => "shutdown",
-	Sys::Virt::Domain::STATE_SHUTOFF => "off",
-	Sys::Virt::Domain::STATE_CRASHED => "crashed",
-);
-
-#my @ctrl_alt_del = ( 35, 18, 38, 38, 24, 57, 17, 24, 19, 38, 32, 28 );
-my @ctrl_alt_del = ( 0x1d, 0x38, 0xd3,  );
-
-# Order matters.
-my @commandOrder1 = ('start', 'halt', 'reset', 'suspend', 'resume');
-my @commandOrder2 = ('shutdown', 'reboot', 'ctrl-alt-del');
-
-my %commandIcons = (
-	'start' => 'control_play_blue.png',
-	'halt' => 'cancel.png',
-	'shutdown' => 'control_stop_blue.png',
-	'reboot' => 'update.png',
-	'reset' => 'update.png',
-	'suspend' => 'control_pause_blue.png',
-	'resume' => 'control_play_blue.png',
-	'ctrl-alt-del' => 'keyboard.png',
-);
-
-# Maps each command to a set of states the command is valid for in a given domain.
-my %validCommands = (
-	'start' => {
-		Sys::Virt::Domain::STATE_SHUTDOWN => 1,
-		Sys::Virt::Domain::STATE_SHUTOFF => 1,
-		Sys::Virt::Domain::STATE_CRASHED => 1
-	},
-	'halt' => {
-		Sys::Virt::Domain::STATE_SHUTDOWN => 1,
-		Sys::Virt::Domain::STATE_RUNNING => 1,
-		Sys::Virt::Domain::STATE_BLOCKED => 1,
-		Sys::Virt::Domain::STATE_PAUSED => 1,
-		Sys::Virt::Domain::STATE_CRASHED => 1,
-	},
-	'shutdown' => {
-		Sys::Virt::Domain::STATE_RUNNING => 1,
-		Sys::Virt::Domain::STATE_BLOCKED => 1,
-		Sys::Virt::Domain::STATE_PAUSED => 1,
-		Sys::Virt::Domain::STATE_CRASHED => 1,
-	},
-	'reboot' => {
-		Sys::Virt::Domain::STATE_RUNNING => 1,
-		Sys::Virt::Domain::STATE_BLOCKED => 1,
-		Sys::Virt::Domain::STATE_PAUSED => 1,
-	},
-	'reset' => {
-		Sys::Virt::Domain::STATE_SHUTDOWN => 1,
-		Sys::Virt::Domain::STATE_RUNNING => 1,
-		Sys::Virt::Domain::STATE_BLOCKED => 1,
-		Sys::Virt::Domain::STATE_PAUSED => 1,
-		Sys::Virt::Domain::STATE_CRASHED => 1,
-	},
-	'suspend' => {
-		Sys::Virt::Domain::STATE_RUNNING => 1,
-	},
-	'resume' => {
-		Sys::Virt::Domain::STATE_PAUSED => 1,
-	},
-	'ctrl-alt-del' => {
-		Sys::Virt::Domain::STATE_RUNNING => 1,
-	}
-
-);
 
 #print STDERR Dumper (\%validCommands); exit (0);
 

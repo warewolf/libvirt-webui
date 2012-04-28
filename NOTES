@@ -21,3 +21,19 @@ Web server URL scheme:
 
 *) Individual VM mgmt is via: "/vm/$verb/$uuid"
    No verb means main interface.
+
+#########################################
+Perl notes:
+
+Every source file must be in a unique "package".  If they share package names,
+they cannot share globals unless references to those globals are explicitely scoped
+with "::".
+This is _EXACTLY_ what was happening to me:
+
+# http://darkness.codefu.org/wordpress/2003/03/perl-scoping/
+    "While this might not match my articulation thus far, it matches the behavior my brain 
+    is currently expecting. My one problem is this: if you use strict but have two files that 
+    declare variables in the same package, you can't easily access variables from file two when 
+    they.re declared in file one. I guess it just seems fucked up. With use warnings in effect 
+    you can't even use the fully-qualified name without getting some complaints. Moral of the 
+    story: use package statements for every file that you're going to want to access members of later."
