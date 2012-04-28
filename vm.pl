@@ -1,24 +1,38 @@
 #!/usr/bin/perl -w
 
 # 2012-04-12, djenkins, initial
-package libvirtWebui::main;
+package libvirtWebui;
 
 use strict;
+use warnings;
 use CGI qw/:standard :html3 tr td/;
 use CGI::Carp qw(warningsToBrowser fatalsToBrowser);
 use Sys::Virt;
 use Sys::Virt::Domain;
 use XML::Simple;
 use Data::Dumper;
-
-# http://stackoverflow.com/questions/4363913/splitting-code-into-files-in-perl
 use FindBin;
-use lib "$FindBin::Bin/.";
 
-use vm_debug;
+# Our script is broken down into modules, for organizational purposes.
+# We don't place the modules in "/usr/lib/perl/...."
+# When running the script in our development directory, we
+# want to use local modules (./modules).  When running "in production", we want
+# to use the privately installed modules (/opt/libvirt-webui/modules/...)
+
+my $modulesDir;
+BEGIN {
+	my $binDir = $FindBin::Bin;
+	$binDir =~ /^(.*)$/;
+	$binDir = $1;			# untaint value.
+	push (@INC, "$binDir/modules");
+}
+
+# Now we can load our private modules (Now that '@INC' is patched).
+use cgiDebug;
 
 # Super-duper global configs:
 my $hostAddress = "qemu+tls://ostara/system";
+my $optDebug = 0;
 
 # No user-servicable parts below this line.
 $CGI::POST_MAX=1024 * 100;  # max 100K posts
@@ -215,21 +229,6 @@ sub	doCommand ($$) {
 	}
 }
 
-sub	debugVars () {
-	print "<p>CGI vars:</p><ol>\n";
-	my $vars = $cgi->Vars();
-	foreach my $key (sort keys %$vars) {
-		print "<li><b>$key</b> = " . $vars->{$key} . "</li>\n";
-	}
-	print "</ol>\n";
-
-	print "<p>ENV vars:</p><ol>\n";
-	foreach my $e (sort keys %ENV) {
-		print "<li><b>$e</b> = " . $ENV{$e} . "</li>\n";
-	}
-	print "</ol>\n";
-}
-
 sub	drawMainHeader () {
 	my @now = localtime (time ());
 	my $ts = sprintf ("%04d-%02d-%02d %02d:%02d:%02d",
@@ -291,7 +290,7 @@ sub	doMain () {
 		-style => {-type => 'text/css', -src => "$wwwRoot/vm.css", -media => 'screen' },
 	);
 
-#	debugVars();
+	debugVars($cgi) if ($optDebug);
 
 # Figure out what the request is for.
 # "PATH_INFO" is in the form "/a/b/c/...."

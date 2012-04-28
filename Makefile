@@ -36,10 +36,12 @@ check:
 install:	check
 		install -m 755 -o root -g root -d $(APPDIR)
 		install -m 755 -o root -g root -d $(APPDIR)/conf
-		install -m 755 -o root -g root -d $(APPDIR)/cgi
 		install -m 755 -o root -g root -d $(APPDIR)/www
+		install -m 755 -o root -g root -d $(APPDIR)/cgi
+		install -m 755 -o root -g root -d $(APPDIR)/cgi/modules
 		install -m 644 -o root -g root ./apache2.conf $(APPDIR)/conf/apache2.conf
 		install -m 755 -o root -g root ./vm.pl $(APPDIR)/cgi/vm.pl
+		install -m 644 -o root -g root ./modules/*.pm $(APPDIR)/cgi/modules
 		install -m 644 -o root -g root ./vm.css $(APPDIR)/www/vm.css
 		install -m 644 -o root -g root ./img/fatcow/16x16/*.png $(APPDIR)/www
 
